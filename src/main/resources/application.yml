@@ -1,0 +1,17 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: spring-openclaw-wecom
+
+wecom:
+  relay:
+    response-timeout: 60000
+    ping-interval: 30000
+    max-pending-messages: 1000
+
+logging:
+  level:
+    root: INFO
+    com.openclaw.wecom: DEBUG
