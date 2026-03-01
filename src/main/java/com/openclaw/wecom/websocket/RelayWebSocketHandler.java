@@ -69,7 +69,12 @@ public class RelayWebSocketHandler extends TextWebSocketHandler {
             case "register":
                 handleRegister(session, clientMessage);
                 break;
+            case "ping":
+                // 收到 ping，回复 pong
+                sendMessage(session, ServerMessage.builder().type("pong").build());
+                break;
             case "pong":
+                // 收到 pong，无需处理
                 break;
             case "response":
                 handleResponse(clientMessage);
