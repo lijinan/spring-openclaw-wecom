@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: spring-openclaw-wecom
+  profiles:
+    active: dev  # 默认使用开发环境
 
 wecom:
   relay:
@@ -17,4 +19,4 @@ wecom:
 logging:
   level:
     root: INFO
-    com.openclaw.wecom: DEBUG
+    com.openclaw.wecom: INFO
