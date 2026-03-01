@@ -96,9 +96,11 @@ public class MessageBufferService {
     @Scheduled(fixedRate = 10000)
     public void cleanupExpiredMessages() {
         int removed = 0;
-        for (BufferedMessage msg : messageBuffer) {
+        java.util.Iterator<BufferedMessage> iterator = messageBuffer.iterator();
+        while (iterator.hasNext()) {
+            BufferedMessage msg = iterator.next();
             if (msg.isExpired()) {
-                messageBuffer.remove(msg);
+                iterator.remove();
                 removed++;
             }
         }

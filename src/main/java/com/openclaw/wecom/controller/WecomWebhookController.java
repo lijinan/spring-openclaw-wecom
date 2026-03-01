@@ -35,15 +35,15 @@ public class WecomWebhookController {
     @Autowired
     private MessageBufferService messageBufferService;
 
-    @Autowired
-    private ObjectMapper objectMapper;
-
     @GetMapping
     public ResponseEntity<String> handleVerify(HttpServletRequest request) {
         log.info("Received GET request for URL verification");
 
         Map<String, String> query = extractQueryParams(request);
         log.debug("Query params: {}", query);
+
+        // URL 验证转发给 OpenClaw 处理（Java 层不验证签名，由 OpenClaw 负责）
+        // 这样 Java 端不需要配置 token 和 encodingAesKey
 
         if (!webSocketHandler.hasConnectedClient()) {
             log.warn("No connected OpenClaw client for verification");
@@ -79,7 +79,8 @@ public class WecomWebhookController {
                     ? (String) responsePayload.get("body")
                     : "";
 
-            log.info("Verification response: status={}, body={}", status, body);
+            log.info("Verification response: status={}, body={}", status, 
+                    body.length() > 50 ? body.substring(0, 50) + "..." : body);
             return ResponseEntity.status(status).body(body);
 
         } catch (InterruptedException e) {
@@ -104,6 +105,9 @@ public class WecomWebhookController {
 
         Map<String, String> query = extractQueryParams(request);
         log.debug("Query params: {}", query);
+
+        // 签名验证由 OpenClaw 层处理（需要解密消息体后验证 encrypt 字段）
+        // Java 层只负责转发请求
 
         String messageId = UUID.randomUUID().toString();
 
@@ -140,12 +144,22 @@ public class WecomWebhookController {
             }
 
             Map<String, Object> responsePayload = (Map<String, Object>) response.getPayload();
-            int status = responsePayload != null && responsePayload.containsKey("status")
-                    ? ((Number) responsePayload.get("status")).intValue()
-                    : 200;
-            String responseBody = responsePayload != null && responsePayload.containsKey("body")
-                    ? (String) responsePayload.get("body")
-                    : "";
+            
+            // 安全的类型转换
+            int status = 200;
+            String responseBody = "";
+            
+            if (responsePayload != null) {
+                Object statusObj = responsePayload.get("status");
+                if (statusObj instanceof Number) {
+                    status = ((Number) statusObj).intValue();
+                }
+                
+                Object bodyObj = responsePayload.get("body");
+                if (bodyObj instanceof String) {
+                    responseBody = (String) bodyObj;
+                }
+            }
 
             log.debug("Response: status={}, body length={}", status, responseBody.length());
             return ResponseEntity.status(status).body(responseBody);

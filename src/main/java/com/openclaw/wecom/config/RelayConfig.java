@@ -14,4 +14,10 @@ public class RelayConfig {
     private int pingInterval = 30000;
 
     private int maxPendingMessages = 1000;
+
+    private String authToken = "";
+
+    private String token = "";
+
+    private String encodingAesKey = "";
 }

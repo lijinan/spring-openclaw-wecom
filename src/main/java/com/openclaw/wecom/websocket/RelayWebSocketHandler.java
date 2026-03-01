@@ -8,6 +8,7 @@ import com.openclaw.wecom.service.MessageBufferService;
 import com.openclaw.wecom.service.PendingMessageManager;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -36,11 +37,13 @@ public class RelayWebSocketHandler extends TextWebSocketHandler {
 
     private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
     private final Map<String, String> clientIdToSessionId = new ConcurrentHashMap<>();
+    private final Map<String, Boolean> authenticatedSessions = new ConcurrentHashMap<>();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         log.info("WebSocket connection established: {}", session.getId());
         sessions.put(session.getId(), session);
+        authenticatedSessions.put(session.getId(), false);
     }
 
     @Override
@@ -81,6 +84,7 @@ public class RelayWebSocketHandler extends TextWebSocketHandler {
         log.info("WebSocket connection closed: {}, status: {}", session.getId(), status);
         String sessionId = session.getId();
         sessions.remove(sessionId);
+        authenticatedSessions.remove(sessionId);
 
         String clientId = null;
         for (Map.Entry<String, String> entry : clientIdToSessionId.entrySet()) {
@@ -101,9 +105,33 @@ public class RelayWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void handleRegister(WebSocketSession session, ClientMessage message) throws IOException {
-        String clientId = message.getClientId();
-        if (clientId == null || clientId.isEmpty()) {
-            clientId = "client-" + session.getId();
+        String authToken = message.getClientId();
+        if (authToken == null || authToken.isEmpty()) {
+            log.warn("Registration attempt with empty clientId/authToken");
+            ServerMessage response = ServerMessage.builder()
+                    .type("error")
+                    .error("Authentication required. Please provide auth token in clientId field.")
+                    .build();
+            sendMessage(session, response);
+            session.close(new CloseStatus(HttpStatus.UNAUTHORIZED.value(), "Authentication required"));
+            return;
+        }
+
+        String clientId;
+        if (authToken.equals(relayConfig.getAuthToken())) {
+            // Auth successful - generate a proper client ID
+            clientId = "openclaw-" + session.getId().substring(0, 8);
+            authenticatedSessions.put(session.getId(), true);
+            log.info("Client authenticated: {}", session.getId());
+        } else {
+            log.warn("Authentication failed for session {}: invalid token", session.getId());
+            ServerMessage response = ServerMessage.builder()
+                    .type("error")
+                    .error("Authentication failed: invalid token")
+                    .build();
+            sendMessage(session, response);
+            session.close(new CloseStatus(HttpStatus.UNAUTHORIZED.value(), "Invalid authentication token"));
+            return;
         }
 
         clientIdToSessionId.put(clientId, session.getId());
@@ -141,7 +169,7 @@ public class RelayWebSocketHandler extends TextWebSocketHandler {
 
     public boolean sendMessageToClient(ServerMessage message) {
         for (WebSocketSession session : sessions.values()) {
-            if (session.isOpen()) {
+            if (session.isOpen() && Boolean.TRUE.equals(authenticatedSessions.get(session.getId()))) {
                 return sendMessage(session, message);
             }
         }
@@ -150,10 +178,13 @@ public class RelayWebSocketHandler extends TextWebSocketHandler {
     }
 
     public boolean hasConnectedClient() {
-        return sessions.values().stream().anyMatch(WebSocketSession::isOpen);
+        return sessions.values().stream()
+                .anyMatch(s -> s.isOpen() && Boolean.TRUE.equals(authenticatedSessions.get(s.getId())));
     }
 
     public int getConnectedClientCount() {
-        return (int) sessions.values().stream().filter(WebSocketSession::isOpen).count();
+        return (int) sessions.values().stream()
+                .filter(s -> s.isOpen() && Boolean.TRUE.equals(authenticatedSessions.get(s.getId())))
+                .count();
     }
 }
