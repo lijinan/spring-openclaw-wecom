@@ -6,6 +6,7 @@ import com.openclaw.wecom.model.WebhookPayload;
 import com.openclaw.wecom.websocket.RelayWebSocketHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +23,7 @@ public class MessageBufferService {
     private RelayConfig relayConfig;
 
     @Autowired
+    @Lazy
     private RelayWebSocketHandler webSocketHandler;
 
     @Autowired
