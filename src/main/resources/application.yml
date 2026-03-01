@@ -10,7 +10,9 @@ wecom:
     response-timeout: 60000
     ping-interval: 30000
     max-pending-messages: 1000
-    auth-token: ${WECON_RELAY_AUTH_TOKEN:openclaw-secret-token}
+    # key 为 clientId，value 为 authToken
+    clients:
+      qghub: openclaw.qghub.cn
 
 logging:
   level:

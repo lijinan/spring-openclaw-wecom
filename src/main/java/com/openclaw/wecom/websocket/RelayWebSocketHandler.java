@@ -105,32 +105,42 @@ public class RelayWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void handleRegister(WebSocketSession session, ClientMessage message) throws IOException {
-        String authToken = message.getClientId();
-        if (authToken == null || authToken.isEmpty()) {
-            log.warn("Registration attempt with empty clientId/authToken");
+        String clientId = message.getClientId();
+        String authToken = message.getAuthToken();
+
+        if (clientId == null || clientId.isEmpty()) {
+            log.warn("Registration attempt with empty clientId");
             ServerMessage response = ServerMessage.builder()
                     .type("error")
-                    .error("Authentication required. Please provide auth token in clientId field.")
+                    .error("Authentication required. Please provide clientId.")
                     .build();
             sendMessage(session, response);
             session.close(new CloseStatus(HttpStatus.UNAUTHORIZED.value(), "Authentication required"));
             return;
         }
 
-        String clientId;
-        if (authToken.equals(relayConfig.getAuthToken())) {
-            // Auth successful - generate a proper client ID
-            clientId = "openclaw-" + session.getId().substring(0, 8);
-            authenticatedSessions.put(session.getId(), true);
-            log.info("Client authenticated: {}", session.getId());
-        } else {
-            log.warn("Authentication failed for session {}: invalid token", session.getId());
+        if (authToken == null || authToken.isEmpty()) {
+            log.warn("Registration attempt with empty authToken");
             ServerMessage response = ServerMessage.builder()
                     .type("error")
-                    .error("Authentication failed: invalid token")
+                    .error("Authentication required. Please provide authToken.")
                     .build();
             sendMessage(session, response);
-            session.close(new CloseStatus(HttpStatus.UNAUTHORIZED.value(), "Invalid authentication token"));
+            session.close(new CloseStatus(HttpStatus.UNAUTHORIZED.value(), "Authentication required"));
+            return;
+        }
+
+        if (relayConfig.authenticate(clientId, authToken)) {
+            authenticatedSessions.put(session.getId(), true);
+            log.info("Client authenticated: {} (clientId: {})", session.getId(), clientId);
+        } else {
+            log.warn("Authentication failed for session {}: clientId={}, invalid token", session.getId(), clientId);
+            ServerMessage response = ServerMessage.builder()
+                    .type("error")
+                    .error("Authentication failed: invalid clientId or token")
+                    .build();
+            sendMessage(session, response);
+            session.close(new CloseStatus(HttpStatus.UNAUTHORIZED.value(), "Invalid authentication"));
             return;
         }
 

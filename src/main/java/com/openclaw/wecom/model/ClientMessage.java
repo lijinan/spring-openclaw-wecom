@@ -15,6 +15,8 @@ public class ClientMessage {
 
     private String clientId;
 
+    private String authToken;
+
     private String messageId;
 
     private Object payload;
