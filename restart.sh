@@ -61,7 +61,7 @@ echo ""
 
 # 4. 启动新服务
 echo "4. 启动新服务 (环境: $ENV)..."
-java -jar -Dspring.profiles.active="$ENV" target/spring-openclaw-wecom-1.0.0.jar > app.log 2>&1 &
+java -Duser.timezone=Asia/Shanghai -jar -Dspring.profiles.active="$ENV" target/spring-openclaw-wecom-1.0.0.jar > app.log 2>&1 &
 PID=$!
 echo "服务已启动，进程ID: $PID"
 echo ""
