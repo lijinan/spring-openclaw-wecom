@@ -2,8 +2,11 @@
 
 set -e
 
+# 环境参数解析
+ENV="${1:-dev}"
 echo "===================================="
 echo "OpenClaw WeCom 服务重启脚本"
+echo "当前环境: $ENV"
 echo "===================================="
 echo "开始时间: $(date)"
 echo ""
@@ -11,6 +14,11 @@ echo ""
 # 切换到项目目录
 cd "$(dirname "$0")"
 echo "当前目录: $(pwd)"
+echo ""
+
+# 设置 Spring Profile
+export SPRING_PROFILES_ACTIVE="$ENV"
+echo "激活 Profile: $SPRING_PROFILES_ACTIVE"
 echo ""
 
 # 1. 更新代码
@@ -52,8 +60,8 @@ echo "✓ 旧服务已停止"
 echo ""
 
 # 4. 启动新服务
-echo "4. 启动新服务..."
-java -jar target/spring-openclaw-wecom-1.0.0.jar > app.log 2>&1 &
+echo "4. 启动新服务 (环境: $ENV)..."
+java -jar -Dspring.profiles.active="$ENV" target/spring-openclaw-wecom-1.0.0.jar > app.log 2>&1 &
 PID=$!
 echo "服务已启动，进程ID: $PID"
 echo ""
